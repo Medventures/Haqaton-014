@@ -1,4 +1,5 @@
 import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc, writeBatch } from "firebase/firestore"
+import { publishClinicRequest, upsertClinicPatient } from "@/lib/clinic"
 import type { Encounter } from "@/lib/domain/patient"
 import { parseIntake, type Intake } from "@/lib/intake"
 import { db } from "@/lib/firebase"
@@ -15,11 +16,13 @@ export async function ensureUserDoc(uid: string, email: string | null) {
   await setDoc(
     ref,
     {
+      role: "patient",
       ...(email ? { email } : {}),
       ...(existing.exists() ? {} : { createdAt: serverTimestamp() }),
     },
     { merge: true },
   )
+  await upsertClinicPatient({ uid, email })
 }
 
 export async function loadIntake(uid: string): Promise<Intake | null> {
@@ -54,6 +57,14 @@ export async function saveIntake(uid: string, email: string | null, intake: Inta
     },
     { merge: true },
   )
+  await upsertClinicPatient({
+    uid,
+    email,
+    age: intake.age,
+    sex: intake.sex,
+    weightKg: intake.weightKg,
+    heightCm: intake.heightCm,
+  })
 }
 
 function textField(value: unknown) {
@@ -135,5 +146,29 @@ export async function saveCheckupRequest(
     createdAt: serverTimestamp(),
   })
   await batch.commit()
+  const userSnap = await getDoc(doc(database, "users", uid))
+  const data = userSnap.data() ?? {}
+  const questionnaire = data.questionnaire && typeof data.questionnaire === "object"
+    ? (data.questionnaire as Record<string, unknown>)
+    : {}
+  const history = data.history && typeof data.history === "object"
+    ? (data.history as Record<string, unknown>)
+    : {}
+  await publishClinicRequest({
+    patientUid: uid,
+    email: typeof data.email === "string" ? data.email : null,
+    phone: request.phone,
+    encounterId: encounterRef.id,
+    tests: request.tests,
+    totalKzt: request.totalKzt,
+    complaints: encounter.complaints || textField(history.complaints),
+    anamnesis: [textField(history.diseaseHistory), textField(history.lifeHistory)]
+      .filter(Boolean)
+      .join("\n\n"),
+    age: typeof questionnaire.age === "number" ? questionnaire.age : undefined,
+    sex: typeof questionnaire.sex === "string" ? questionnaire.sex : undefined,
+    weightKg: typeof questionnaire.weightKg === "number" ? questionnaire.weightKg : undefined,
+    heightCm: typeof questionnaire.heightCm === "number" ? questionnaire.heightCm : undefined,
+  })
   return encounterRef.id
 }

@@ -3,14 +3,19 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth"
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "firebase/auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/auth-provider"
 import { ensureUserDoc } from "@/lib/account"
+import { isDoctorAccount } from "@/lib/clinic"
 import { auth } from "@/lib/firebase"
+
+function doctorOrigin() {
+  return process.env.NEXT_PUBLIC_DOCTOR_ORIGIN || "http://localhost:3014"
+}
 
 function authErrorMessage(error: unknown) {
   const code = typeof error === "object" && error && "code" in error ? String(error.code) : ""
@@ -58,6 +63,12 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       const credential = isRegister
         ? await createUserWithEmailAndPassword(auth(), email.trim(), password)
         : await signInWithEmailAndPassword(auth(), email.trim(), password)
+      if (await isDoctorAccount(credential.user.uid)) {
+        await signOut(auth())
+        setError(`Это кабинет пациента. Врач входит отдельно: ${doctorOrigin()}`)
+        setPending(false)
+        return
+      }
       await ensureUserDoc(credential.user.uid, credential.user.email)
       router.push(isRegister ? "/questionnaire" : "/dashboard")
     } catch (caught) {
@@ -139,6 +150,12 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                 </Link>
               </>
             )}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Врач входит отдельно:{" "}
+            <a href={doctorOrigin()} className="text-foreground underline">
+              кабинет врача
+            </a>
           </p>
         </form>
       </CardContent>

@@ -152,6 +152,7 @@ function ExamCard({
 }
 
 function Answer({ recommendation, uid }: { recommendation: CheckupRecommendation; uid: string }) {
+  const router = useRouter()
   const recommended = recommendation.recommended_checkup.map((item) => ({
     id: itemId(item.name, item.why),
     name: item.name,
@@ -170,7 +171,6 @@ function Answer({ recommendation, uid }: { recommendation: CheckupRecommendation
   const [phone, setPhone] = useState("")
   const [error, setError] = useState("")
   const [pending, setPending] = useState(false)
-  const [sent, setSent] = useState(false)
 
   const catalog = [...recommended, ...optional]
   const cart = catalog.filter((item) => selected.includes(item.id))
@@ -218,7 +218,7 @@ function Answer({ recommendation, uid }: { recommendation: CheckupRecommendation
           phone: `+${digits}`,
         },
       )
-      setSent(true)
+      router.push("/dashboard")
     } catch {
       setError("Не удалось отправить заявку.")
     } finally {
@@ -253,7 +253,7 @@ function Answer({ recommendation, uid }: { recommendation: CheckupRecommendation
               aria-label="Номер телефона"
               placeholder="7 700 000 00 00"
               value={phone}
-              disabled={sent || pending}
+              disabled={pending}
               onChange={(event) => {
                 setPhone(event.target.value.replace(/[^\d\s()-]/g, ""))
                 setError("")
@@ -266,10 +266,10 @@ function Answer({ recommendation, uid }: { recommendation: CheckupRecommendation
             </p>
           ) : null}
           <div className="flex flex-col gap-2">
-            <Button type="button" disabled={pending || sent} onClick={() => void send()}>
-              {sent ? "Заявка отправлена" : pending ? "Отправляем…" : "Отправить заявку"}
+            <Button type="button" disabled={pending} onClick={() => void send()}>
+              {pending ? "Отправляем…" : "Отправить заявку"}
             </Button>
-            <Button type="button" variant="outline" disabled={pending || sent} onClick={() => setStep("cart")}>
+            <Button type="button" variant="outline" disabled={pending} onClick={() => setStep("cart")}>
               Назад
             </Button>
           </div>
