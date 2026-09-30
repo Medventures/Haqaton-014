@@ -1,21 +1,132 @@
-# Next.js template
+# Medhub
 
-This is a Next.js template with shadcn/ui.
+Персональный чекап для пациента: анкета, обоснованный список обследований, заявка, карта здоровья, напоминания и план маршрута.
 
-## Adding components
+Это не диагноз и не назначение. Решение принимает врач.
 
-To add components to your app, run the following command:
+## Что делает продукт
 
-```bash
-npx shadcn@latest add button
+После входа открывается личный кабинет, а не пустая главная.
+
+Путь пользователя связан через одно обращение:
+
+```text
+Профиль
+  → Обращение
+  → Персональный чекап
+  → Рекомендованные исследования
+  → Заявка
+  → Маршрут и время
+  → Результаты
+  → Карта здоровья
+  → Напоминания
 ```
 
-This will place the ui components in the `components` directory.
+Список анализов собирается индивидуально. Не формируется универсальный пакет «полного чекапа».
 
-## Using components
+## Стек
 
-To use the components in your app, import them as follows:
+- Next.js 16, React 19, TypeScript
+- Tailwind CSS и shadcn/ui
+- Firebase Auth и Firestore (`findy-ai`)
+- UpToDate и протоколы МЗ РК через `medical-frontend`
+- Mapbox для поиска мест и карты
+- Recharts для динамики показателей
 
-```tsx
-import { Button } from "@/components/ui/button";
+## Как запустить
+
+Нужны два сервиса: этот кабинет и `medical-frontend` для подбора обследований.
+
+```bash
+cd /Users/zandauletzaksylykuly/myapps/findy-intake
+cp .env.example .env.local
+# заполните Firebase-ключи
+npm install
+npm run dev
+```
+
+Кабинет по умолчанию: [http://localhost:3000](http://localhost:3000)
+
+Если порт занят, как в разработке:
+
+```bash
+npx next dev --port 3013
+```
+
+Подбор обследований:
+
+```bash
+cd /Users/zandauletzaksylykuly/myapps/medical-frontend
+npm run dev -- --port 3000
+```
+
+В `.env.local` кабинета:
+
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=findy-ai.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=findy-ai
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=findy-ai.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=528376885501
+NEXT_PUBLIC_FIREBASE_APP_ID=
+MEDLIB_ORIGIN=http://127.0.0.1:3000
+NEXT_PUBLIC_MAPBOX_TOKEN=
+```
+
+Без `MEDLIB_ORIGIN` подбор недоступен. Без Mapbox-токена кабинет работает, карта мест отключена.
+
+## Сценарий пациента
+
+1. Регистрация или вход.
+2. Паспортные данные: возраст, пол, вес, рост.
+3. Жалобы, история заболевания, история жизни.
+4. Подбор обследований. В UI видны шаги поиска по протоколам и UpToDate.
+5. Конструктор: плюс и минус добавляют исследование в корзину. Рекомендованные уже выбраны.
+6. Один номер телефона и одна заявка.
+7. Дальше кабинет: обращения, результаты, карта здоровья, напоминания, маршрут.
+
+## Маршруты
+
+| Путь | Раздел |
+| --- | --- |
+| `/` | Вход и регистрация |
+| `/dashboard` | Обзор |
+| `/checkup` | Новый чекап |
+| `/questionnaire` | Паспортные данные |
+| `/story` | Жалобы и истории |
+| `/recommendation` | Подбор и конструктор |
+| `/encounters` | Мои обращения |
+| `/health-map` | Карта здоровья |
+| `/analyses` | Мои анализы |
+| `/reminders` | Напоминания |
+| `/route` | Маршрут чекапа |
+| `/profile` | Профиль |
+| `/feedback` | Обратная связь |
+
+На desktop — боковое меню. На mobile — нижняя навигация: Главная, Чекап, Здоровье, Обращения, Профиль.
+
+## Данные
+
+Firestore, проект `findy-ai`. Документ пользователя: `users/{uid}`.
+
+| Коллекция | Что хранит |
+| --- | --- |
+| `users/{uid}` | email, анкета, история |
+| `users/{uid}/encounters` | обращение, выбранные исследования, snapshot рекомендации |
+| `users/{uid}/requests` | заявка: телефон, корзина, сумма |
+| `users/{uid}/observations` | фактические результаты с источником |
+| `users/{uid}/reminders` | напоминания с причиной |
+| `users/{uid}/routes` | план маршрута |
+| `users/{uid}/feedback` | сообщения пользователя |
+
+Карта здоровья и графики показывают только сохранённые результаты. Отсутствие показателя не считается болезнью. AI-рекомендация не записывается как готовый анализ.
+
+Mapbox ищет организации как места на карте. Наличие анализов, часы работы и свободные слоты не утверждаются без API лаборатории. Время в маршруте — планируемое, не подтверждённая запись.
+
+## Проверка
+
+```bash
+npm run typecheck
+npm run lint
+npm run build
 ```
